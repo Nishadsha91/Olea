@@ -123,8 +123,6 @@ function Home() {
             {[
               { name: "Clothes", image: "/baby/cloth.jpg", link: "/clothes" },
               { name: "Toys", image: "/toys/toys.jpg", link: "/toys" },
-              // { name: "Accessories", image: "/baby/accessories.jpg", link: "/accessories" },
-              // { name: "New Arrivals", image: "/baby/newborn.jpg", link: "/new-arrivals" },
             ].map((category, index) => (
               <Link
                 key={index}

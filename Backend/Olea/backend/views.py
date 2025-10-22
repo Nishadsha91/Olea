@@ -2,24 +2,37 @@ from decimal import Decimal
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
-from django.contrib.auth.tokens import default_token_generator
 from rest_framework import generics, status, viewsets
+from django.contrib.auth.tokens import default_token_generator
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+from .models import Cart, Product, Wishlist, Order, OrderItem, CustomUser
+from .serializer import (CartSerializer, ProductSerializer, WishlistSerializer, OrderItemSerializer, OrderSerializer, UserSerializer, RegisterSerializer)
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated 
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import BasePermission 
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
+from .pagination import AdminPagination
 from django.conf import settings
-from .models import Cart, Product, Wishlist, Order, OrderItem, CustomUser
-from .serializer import (CartSerializer, ProductSerializer, WishlistSerializer, 
-                        OrderItemSerializer, OrderSerializer, UserSerializer, 
-                        RegisterSerializer)
 import razorpay
+
 
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
 
+class IsAdminRole(BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user and 
+            user.is_authenticated and 
+            (getattr(user, 'role', '').lower() == 'admin' or user.is_staff)
+        )
+
+
 class CustomLoginView(APIView):
+    permission_classes = [AllowAny]  # ✅ CRITICAL: Allow unauthenticated access
+    
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
@@ -59,10 +72,60 @@ class CustomLoginView(APIView):
                     "id": user.id,
                     "email": user.email,
                     "username": user.username,
+                    "role": user.role,
                 },
             },
             status=status.HTTP_200_OK,
         )
+
+
+class BlockUnblockUserView(APIView):
+    permission_classes = [IsAdminUser, IsAdminRole]
+
+    def patch(self, request, user_id):
+        # Get the user, 404 if not found
+        user = get_object_or_404(CustomUser, id=user_id)
+
+        # Get 'is_active' from request
+        is_active = request.data.get('is_active')
+        if is_active is None:
+            return Response({"error": "The 'is_active' field is required."}, status=400)
+
+        # Ensure it's a boolean
+        if not isinstance(is_active, bool):
+            return Response({"error": "'is_active' must be a boolean value."}, status=400)
+
+        # Prevent blocking admin users
+        if user.is_staff:
+            return Response({"error": "Admin users cannot be blocked."}, status=403)
+
+        # Update user status
+        user.is_active = is_active
+        user.save()
+
+        # Send email if blocked
+        if not is_active:
+            try:
+                send_mail(
+                    subject="Account Blocked",
+                    message=(
+                        f"Hi {user.username},\n\n"
+                        "Your account has been blocked by the admin. "
+                        "Please contact support if you think this is a mistake."
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                print(f"Failed to send email to {user.email}: {e}")
+
+        return Response({
+            "status": "success",
+            "user_id": user.id,
+            "is_active": user.is_active,
+            "message": "User has been unblocked." if is_active else "User has been blocked."
+        })
 
 
 class RegisterView(generics.CreateAPIView):
@@ -70,10 +133,8 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
-        # Create and activate the user immediately
         user = serializer.save(is_active=True, is_verified=True)
 
-        # Send a welcome email
         try:
             send_mail(
                 subject="🎉 Welcome to Olea!",
@@ -109,6 +170,7 @@ class RegisterView(generics.CreateAPIView):
                     "id": user.id,
                     "email": user.email,
                     "username": user.username,
+                    "role": user.role,  # ✅ ADDED: Include role here too
                 },
             },
             status=status.HTTP_201_CREATED,
@@ -286,7 +348,6 @@ class ResetPasswordView(APIView):
             {"message": "Password reset successfully! You can now login with your new password."},
             status=status.HTTP_200_OK,
         )
-
 
 
 @api_view(["POST"])
@@ -508,3 +569,136 @@ def verify_razorpay_payment(request):
             {"error": f"Failed to create order: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+class AdminDashboardView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # Fetch all data
+        orders = Order.objects.all().order_by('-created_at')
+        products = Product.objects.all()
+        users = CustomUser.objects.all()
+
+        # Calculate total revenue
+        total_revenue = sum([float(order.total_amount or 0) for order in orders])
+
+        # Sales data grouped by date
+        sales_dict = {}
+        category_count = {}
+
+        for order in orders:
+            date_str = order.created_at.strftime("%Y-%m-%d")
+            sales_dict[date_str] = sales_dict.get(date_str, 0) + float(order.total_amount or 0)
+
+            for item in order.items.all():
+                category = item.product.category if item.product.category else "Uncategorized"
+                category_count[category] = category_count.get(category, 0) + item.quantity
+
+        sales_data = [{"date": date, "total": total} for date, total in sales_dict.items()]
+        category_data = [{"name": name, "value": value} for name, value in category_count.items()]
+
+        # Recent activity (latest 4 orders)
+        recent_activity = [
+            {
+                "id": idx + 1,
+                "type": "order",
+                "message": f"New order from {order.user.username if order.user else 'Customer'}",
+                "time": order.created_at.strftime("%H:%M:%S"),
+                "amount": f"₹{order.total_amount or 0}"
+            }
+            for idx, order in enumerate(orders[:4])
+        ]
+
+        # Serialize users and products
+        users_serializer = UserSerializer(users, many=True)
+        products_serializer = ProductSerializer(products, many=True)
+
+        # Return consolidated response
+        return Response({
+            "totalRevenue": float(total_revenue),
+            "totalOrders": orders.count(),
+            "totalUsers": users.count(),
+            "totalProducts": products.count(),
+            "salesData": sales_data,
+            "categoryData": category_data,
+            "recentActivity": recent_activity,
+            "orders": OrderSerializer(orders, many=True).data,
+            "users": users_serializer.data,
+            "products": products_serializer.data
+        })
+    
+
+class AdminProductsView(APIView):
+    permission_classes = [IsAdminUser, IsAdminRole]
+
+    def get(self, request):
+        products = Product.objects.all().order_by('-created_at')
+        paginator = AdminPagination()
+        paginated_products = paginator.paginate_queryset(products, request)
+        serializer = ProductSerializer(paginated_products, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+        response.data['totalProducts'] = products.count()
+        return response
+
+    def post(self, request):
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Product created successfully", "product": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk=None):
+        product = get_object_or_404(Product, pk=pk)
+        serializer = ProductSerializer(product, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Product updated successfully", "product": serializer.data},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, pk=None):
+        product = get_object_or_404(Product, pk=pk)
+        serializer = ProductSerializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Product partially updated", "product": serializer.data},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk=None):
+        product = get_object_or_404(Product, pk=pk)
+        product.delete()
+        return Response({"message": "Product deleted successfully"}, status=status.HTTP_200_OK)
+
+
+class AdminOrderView(APIView):
+    permission_classes = [IsAdminUser, IsAdminRole]
+
+    def get(self, request, pk=None):
+        if pk:
+            order = get_object_or_404(Order.objects.select_related('user').prefetch_related('items'), pk=pk)
+            serializer = OrderSerializer(order)
+            return Response(serializer.data)
+        else:
+            orders = Order.objects.all().select_related('user').prefetch_related('items').order_by('-created_at')
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data)
+
+    def patch(self, request, pk=None):
+        order = get_object_or_404(Order.objects.select_related('user').prefetch_related('items'), pk=pk)
+        status_value = request.data.get("status")
+        if not status_value:
+            return Response({"error": "Status field is required."}, status=400)
+
+        order.status = status_value
+        order.save()
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)

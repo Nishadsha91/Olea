@@ -9,7 +9,7 @@ import axiosInstance from '../../api/axiosConfig';
 export default function Payment() {
   const [cartItems, setCartItems] = useState([]);
   const [total, setTotal] = useState(0);
-  const [shippingFee, setShippingFee] = useState(50); // Fixed: Changed to 50 as per backend
+  const [shippingFee, setShippingFee] = useState(50);
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingInfo, setShippingInfo] = useState({
@@ -20,14 +20,14 @@ export default function Payment() {
   const navigate = useNavigate();
   const { clearCart } = useContext(CartWishlistContext);
 
-  // Load cart from backend
+  
   const loadCart = async () => {
     try {
       const res = await axiosInstance.get('/cart/');
       setCartItems(res.data);
       const sum = res.data.reduce((acc, item) => acc + parseFloat(item.product.price) * item.quantity, 0);
       setTotal(sum);
-      setShippingFee(sum > 2000 ? 0 : 50); // Fixed: Changed to 50 as per backend
+      setShippingFee(sum > 2000 ? 0 : 50);
     } catch (err) {
       console.error('Failed to load cart', err.response || err);
       setCartItems([]);
@@ -60,7 +60,6 @@ const handlePayment = async (e) => {
     return;
   }
 
-  // Validate shipping information
   if (!shippingInfo.fullName || !shippingInfo.address || !shippingInfo.phone) {
     toast.warning("Please fill in all shipping information");
     return;
@@ -72,14 +71,12 @@ const handlePayment = async (e) => {
     let response;
 
     if (paymentMethod === 'cash') {
-      // For cash payment - direct checkout
       response = await axiosInstance.post('/create-razorpay-order/', {
         payment_method: 'cash'
       });
       
       toast.success("Order placed successfully!");
       
-      // Clear frontend cart
       await clearCart();
       setCartItems([]);
       setTotal(0);

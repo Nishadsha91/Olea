@@ -1,4 +1,4 @@
-import { createContext, useState } from 'react';
+import { createContext, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export const AuthContext = createContext();
@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || 'null'));
-  const [token, setToken] = useState(() => localStorage.getItem('accessToken') || localStorage.getItem('accessToken'));
+  const [token, setToken] = useState(() => localStorage.getItem('accessToken') || '');
 
   const login = (userData, token, rememberMe) => {
     setIsLoggedIn(true);
@@ -17,12 +17,9 @@ export function AuthProvider({ children }) {
 
     localStorage.setItem('isLoggedIn', 'true');
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('accessToken', token);
 
-    if (rememberMe) {
-      localStorage.setItem('accessToken', token);
-    } else {
-      localStorage.setItem('accessToken', token);
-    }
+
   };
 
   const logout = () => {
@@ -32,12 +29,21 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('user');
     localStorage.removeItem('accessToken');
+    sessionStorage.removeItem('accessToken');
     navigate('/');
   };
-  
+
+  const isAdmin = useMemo(() => user?.role === 'admin', [user]);
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, token, login, logout }}>
+    <AuthContext.Provider value={{ 
+      isLoggedIn, 
+      user, 
+      token, 
+      login, 
+      logout,
+      isAdmin
+    }}>
       {children}
     </AuthContext.Provider>
   );

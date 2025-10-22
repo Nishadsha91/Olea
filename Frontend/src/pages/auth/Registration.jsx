@@ -50,10 +50,9 @@ function Registration() {
         autoClose: 2500,
       });
 
-      // Navigate directly to login page after registration
       setTimeout(() => {
         navigate('/login');
-      }, 1500);
+      }, 100);
 
     } catch (error) {
       toast.error(

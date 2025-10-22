@@ -1,33 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { FiEdit, FiFilter, FiEye, FiRefreshCw,FiPackage,FiTruck,FiCheckCircle,FiXCircle,FiClock,FiUsers,FiMoreVertical,FiAlertCircle,FiShoppingBag} from 'react-icons/fi';
+import { 
+  FiSearch, FiEdit, FiFilter, FiEye, FiRefreshCw, FiPackage, FiTruck, 
+  FiCheckCircle, FiXCircle, FiClock, FiUsers, FiMoreVertical, FiAlertCircle, FiShoppingBag 
+} from 'react-icons/fi';
+import { IndianRupee } from 'lucide-react';
 import Layout from './Layout';
-import { IndianRupeeIcon } from 'lucide-react';
+import axiosInstance from '../../api/axiosConfig';
 
 function ManageOrders() {
   const [orders, setOrders] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
- 
+  const [refreshing, setRefreshing] = useState(false);
+
   const navigate = useNavigate();
 
-  const fetchData = async () => {
+  const fetchOrders = async () => {
     try {
       setError(null);
-      const [ordersRes, usersRes] = await Promise.all([
-        axios.get("http://localhost:3000/orders"),
-        axios.get("http://localhost:3000/users")
-      ]);
-      
-      setOrders(ordersRes.data);
-      setUsers(usersRes.data);
+      setLoading(true);
+      const res = await axiosInstance.get("/manage-orders/");
+      console.log("Orders API Response:", res.data);
+      setOrders(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error("Error fetching data", err);
-      setError("Failed to load orders. Please check if the server is running on port 3000.");
+      console.error("Error fetching orders", err);
+      setError(err.response?.data?.message || "Failed to load orders.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -35,81 +35,85 @@ function ManageOrders() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchOrders();
   }, []);
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setRefreshing(true);
-    await fetchData();
+    fetchOrders();
   };
 
-  const getCustomerName = (userId) => {
-    const user = users.find(u => u.id === userId);
-    return user ? user.name : 'Unknown Customer';
+  const getCustomerName = (user) => {
+    if (!user) return "Unknown Customer";
+    if (typeof user === "object") return user.username || "Unknown Customer";
+    return user;
   };
 
-  const getCustomerEmail = (userId) => {
-    const user = users.find(u => u.id === userId);
-    return user ? user.email : 'N/A';
+  const getCustomerEmail = (user) => {
+    if (!user) return "N/A";
+    if (typeof user === "object") return user.email || "N/A";
+    return "N/A";
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
-      getCustomerName(order.userId).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.id?.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.orderId?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
-      return matchesSearch && matchesStatus;
+  const getOrderId = (order) => order.order_id || order.id || "N/A";
+
+  const filteredOrders = orders.filter((order) => {
+    const customerName = getCustomerName(order.user);
+    const orderId = getOrderId(order);
+    
+    const matchesSearch =
+      customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      orderId.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === "All" || 
+                         order.status?.toLowerCase() === statusFilter.toLowerCase();
+
+    return matchesSearch && matchesStatus;
   });
 
-  const statusOptions = ['All', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  const statusOptions = ["All", "Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 
   const getStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
-      case 'delivered':
-        return <FiCheckCircle className="w-4 h-4" />;
-      case 'shipped':
-        return <FiTruck className="w-4 h-4" />;
-      case 'processing':
-        return <FiPackage className="w-4 h-4" />;
-      case 'cancelled':
-        return <FiXCircle className="w-4 h-4" />;
-      default:
-        return <FiClock className="w-4 h-4" />;
+      case "delivered": return <FiCheckCircle className="w-4 h-4" />;
+      case "shipped": return <FiTruck className="w-4 h-4" />;
+      case "processing": return <FiPackage className="w-4 h-4" />;
+      case "cancelled": return <FiXCircle className="w-4 h-4" />;
+      case "pending": return <FiClock className="w-4 h-4" />;
+      default: return <FiClock className="w-4 h-4" />;
     }
   };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'delivered':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'shipped':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'processing':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'cancelled':
-        return 'bg-red-50 text-red-700 border-red-200';
-      case 'pending':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+      case "delivered": return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "shipped": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "processing": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "cancelled": return "bg-red-50 text-red-700 border-red-200";
+      case "pending": return "bg-orange-50 text-orange-700 border-orange-200";
+      default: return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
-  
+ const totalRevenue = orders.reduce((sum, order) => {
+  const amount = parseFloat(order.total_amount) || 0;
+  return sum + amount;
+}, 0);
 
-  // Calculate stats
-  const totalRevenue = orders.reduce((sum, order) => 
-    sum + (order.totalAmount || order.total || 0), 0
-  );
-  
   const statusCounts = orders.reduce((acc, order) => {
-    const status = order.status || 'Unknown';
+    const status = order.status || "Unknown";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
 
-  // Loading state
+  // Calculate pending orders count
+  const pendingOrdersCount = 
+    statusCounts['Pending'] || 
+    statusCounts['pending'] || 
+    statusCounts['Processing'] || 
+    statusCounts['processing'] || 
+    0;
+
   if (loading) {
     return (
       <Layout>
@@ -127,7 +131,6 @@ function ManageOrders() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <Layout>
@@ -155,11 +158,21 @@ function ManageOrders() {
         {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
-            <h1 className="text-3xl -mt-8 font-bold text-gray-900 flex items-center">
-              
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+              <FiShoppingBag className="mr-3" />
               Order Management
             </h1>
             <p className="text-gray-600 mt-1">Monitor and manage customer orders efficiently</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <FiRefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
         </div>
 
@@ -184,7 +197,7 @@ function ManageOrders() {
                 <p className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <IndianRupeeIcon className="w-6 h-6 text-green-600" />
+                <IndianRupee className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
@@ -193,7 +206,7 @@ function ManageOrders() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending Orders</p>
-                <p className="text-2xl font-bold text-gray-900">{statusCounts['Pending'] || statusCounts['processing'] || 0}</p>
+                <p className="text-2xl font-bold text-gray-900">{pendingOrdersCount}</p>
               </div>
               <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
                 <FiClock className="w-6 h-6 text-amber-600" />
@@ -204,8 +217,10 @@ function ManageOrders() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Customers</p>
-                <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+                <p className="text-sm font-medium text-gray-600">Total Customers</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {new Set(orders.map(order => order.user?.id || order.user)).size}
+                </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <FiUsers className="w-6 h-6 text-blue-600" />
@@ -214,9 +229,23 @@ function ManageOrders() {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Search and Filters */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search Orders</label>
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search by customer name or order ID..."
+                  className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
               <div className="relative">
@@ -233,7 +262,7 @@ function ManageOrders() {
               </div>
             </div>
             
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-end">
               <span className="text-sm text-gray-600">
                 {filteredOrders.length} of {orders.length} orders
               </span>
@@ -258,7 +287,6 @@ function ManageOrders() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                   
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Order ID
                     </th>
@@ -266,7 +294,7 @@ function ManageOrders() {
                       Customer
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Items
+                      Email
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Total Amount
@@ -284,13 +312,14 @@ function ManageOrders() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredOrders.map((order) => {
-                    const orderId = order.id || order.orderId;
-                    const totalAmount = order.totalAmount || order.total || 0;
-                    const itemCount = order.items?.length || 0;
+                    const orderId = getOrderId(order);
+                    const totalAmount = order.total_amount || 0;
+                    const customerName = getCustomerName(order.user);
+                    const customerEmail = getCustomerEmail(order.user);
+                    const orderDate = order.created_at || order.date;
                     
                     return (
                       <tr key={orderId} className="hover:bg-gray-50 transition-colors">
-                        
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             #{orderId}
@@ -301,23 +330,20 @@ function ManageOrders() {
                             <div className="flex-shrink-0 h-10 w-10">
                               <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
                                 <span className="text-sm font-medium text-purple-600">
-                                  {getCustomerName(order.userId).charAt(0)}
+                                  {customerName.charAt(0).toUpperCase()}
                                 </span>
                               </div>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {getCustomerName(order.userId)}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {getCustomerEmail(order.userId)}
+                                {customerName}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {itemCount} item{itemCount !== 1 ? 's' : ''}
+                          <div className="text-sm text-gray-600">
+                            {customerEmail}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -328,42 +354,48 @@ function ManageOrders() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
                             {getStatusIcon(order.status)}
-                            <span className="ml-1 capitalize">{order.status}</span>
+                            <span className="ml-1 capitalize">{order.status || 'Unknown'}</span>
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {new Date(order.date).toLocaleDateString('en-US', {
+                            {orderDate ? new Date(orderDate).toLocaleDateString('en-US', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric'
-                            })}
+                            }) : 'N/A'}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {new Date(order.date).toLocaleTimeString('en-US', {
+                            {orderDate ? new Date(orderDate).toLocaleTimeString('en-US', {
                               hour: '2-digit',
                               minute: '2-digit'
-                            })}
+                            }) : ''}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
+                           
                             <button
-                              onClick={() => navigate(`/admin/orderdetails/${orderId}`)}
-                              className="text-purple-600 hover:text-purple-900 transition-colors p-2 hover:bg-purple-50 rounded-lg"
-                              title="View Details"
+                              onClick={() => {
+                                console.log("Viewing order details for ID:", order.id);
+                                navigate(`/admin/orderdetails/${order.id}`);
+                              }}
+                              className="text-blue-600 hover:text-blue-900 transition-colors p-2 hover:bg-blue-50 rounded-lg"
+                              title="View Order Details"
                             >
                               <FiEye className="w-4 h-4" />
                             </button>
+                            
+                            
                             <button
-                              onClick={() => navigate(`/admin/updateorder/${orderId}`)}
-                              className="text-indigo-600 hover:text-indigo-900 transition-colors p-2 hover:bg-indigo-50 rounded-lg"
-                              title="Edit Order"
+                              onClick={() => {
+                                console.log("Editing order with ID:", order.id);
+                                navigate(`/admin/updateorder/${order.id}`);
+                              }}
+                              className="text-purple-600 hover:text-purple-900 transition-colors p-2 hover:bg-purple-50 rounded-lg"
+                              title="Edit Order Status"
                             >
                               <FiEdit className="w-4 h-4" />
-                            </button>
-                            <button className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-50 rounded-lg">
-                              <FiMoreVertical className="w-4 h-4" />
                             </button>
                           </div>
                         </td>

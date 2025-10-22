@@ -23,7 +23,7 @@ function Wishlist() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#4b2990]">
             Your Wishlist {wishlist.length > 0 && `(${wishlist.length})`}
           </h1>
-          <div className="w-24"></div> {/* Spacer for alignment */}
+          <div className="w-24"></div> 
         </div>
 
         {wishlist.length === 0 ? (
@@ -45,7 +45,7 @@ function Wishlist() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {wishlist.map(item => {
-            const product = item.product; // backend sends product details inside "product"
+            const product = item.product; 
             return (
               <div key={item.id} className="bg-white rounded-xl shadow-md hover:shadow-xl overflow-hidden transition-all duration-300 group relative">
                 <button

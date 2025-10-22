@@ -4,7 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 function ForgetPassword() {
-  const [step, setStep] = useState(1); // 1 = enter email, 2 = verify OTP + reset password
+  const [step, setStep] = useState(1); 
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');

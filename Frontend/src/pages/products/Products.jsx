@@ -15,7 +15,7 @@ function Products() {
   const [category, setCategory] = useState('all');
   const [sortOrder, setSortOrder] = useState('');
   const [priceRange, setPriceRange] = useState([0, 2000]);
-  const [ageRange, setAgeRange] = useState('all'); // Age filter
+  const [ageRange, setAgeRange] = useState('all'); 
   const [selectedImage, setSelectedImage] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -29,7 +29,6 @@ function Products() {
     { id: '6-12', label: '6-12 months' },
     { id: '1-2', label: '1-2 years' },
     { id: '2-3', label: '2-3 years' },
-    { id: '3-5', label: '3-5 years' },
   ];
 
   const categories = useMemo(() => [
@@ -59,21 +58,22 @@ function Products() {
   }, []);
 
   // Filtered & Sorted Products
-  const filteredProducts = useMemo(() => {
-    return products
-      .filter(p =>
-        (category === 'all' || p.category === category) &&
-        (ageRange === 'all' || (p.ageRange && p.ageRange === ageRange)) &&
-        p.name.toLowerCase().includes(search.toLowerCase()) &&
-        p.price >= priceRange[0] &&
-        p.price <= priceRange[1]
-      )
-      .sort((a, b) => {
-        if (sortOrder === 'asc') return a.price - b.price;
-        if (sortOrder === 'desc') return b.price - a.price;
-        return 0;
-      });
-  }, [products, search, category, sortOrder, priceRange, ageRange]);
+const filteredProducts = useMemo(() => {
+  return products
+    .filter(p =>
+      (category === 'all' || p.category === category) &&
+      (ageRange === 'all' || (p.age_range && p.age_range === ageRange)) &&
+      p.name.toLowerCase().includes(search.toLowerCase()) &&
+      p.price >= priceRange[0] &&
+      p.price <= priceRange[1]
+    )
+    .sort((a, b) => {
+      if (sortOrder === 'asc') return a.price - b.price;
+      if (sortOrder === 'desc') return b.price - a.price;
+      return 0;
+    });
+}, [products, search, category, sortOrder, priceRange, ageRange]);
+
 
   // Reset all filters
   const resetFilters = () => {

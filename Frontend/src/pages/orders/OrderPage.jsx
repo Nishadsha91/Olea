@@ -12,10 +12,8 @@ const OrderPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check for order data from payment page
   useEffect(() => {
     if (location.state?.orderDetails) {
-      // If we have new order from payment, add it to the list
       setOrders(prev => [location.state.orderDetails, ...prev]);
     }
   }, [location.state]);
@@ -24,10 +22,8 @@ const OrderPage = () => {
     const fetchOrders = async () => {
       if (!user?.id) return;
       try {
-        // Use your axiosInstance instead of plain axios
         const res = await axiosInstance.get('/orders/');
         
-        // Transform the data to match your frontend structure
         const transformedOrders = res.data.map(order => ({
           orderId: order.order_id,
           id: order.id,
@@ -47,7 +43,7 @@ const OrderPage = () => {
           })) : []
         }));
         
-        setOrders(transformedOrders.reverse()); // latest first
+        setOrders(transformedOrders.reverse()); 
       } catch (err) {
         console.error('Failed to fetch orders', err.response?.data || err);
       } finally {

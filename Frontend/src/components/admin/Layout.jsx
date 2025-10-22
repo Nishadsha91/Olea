@@ -14,6 +14,7 @@ import {
   X 
 } from 'lucide-react';
 import axios from 'axios';
+import axiosInstance from '../../api/axiosConfig';
 
 function Layout({ children }) {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ function Layout({ children }) {
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
-        const response = await axios.get('http://localhost:3000/users');
+        const response = await axiosInstance.get('/users/');
         const adminUsers = response.data.filter(user => user.role === 'admin');
         
         if (adminUsers.length > 0) {
@@ -76,7 +77,7 @@ function Layout({ children }) {
           {/* Logo */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              AdminHub
+              Olea Store
             </h2>
             <button 
               onClick={() => setSidebarOpen(false)}

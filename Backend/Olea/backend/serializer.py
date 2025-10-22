@@ -61,7 +61,7 @@ class WishlistSerializer(serializers.ModelSerializer):
         write_only=True,
         source='product'
     )
-
+    
     class Meta:
         model = Wishlist
         fields = ['id', 'user', 'product', 'product_id', 'created_at', 'updated_at']
@@ -82,8 +82,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)  # Fixed: Made read_only
-    user = serializers.StringRelatedField(read_only=True)
+    items = OrderItemSerializer(many=True, read_only=True)  
+    user = UserSerializer(read_only=True)   
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
         source='user',
@@ -100,5 +100,3 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['order_id', 'created_at', 'updated_at']
 
-    # Fixed: Removed the custom create method since we'll handle order creation in views
-    # The default ModelSerializer create method will work fine

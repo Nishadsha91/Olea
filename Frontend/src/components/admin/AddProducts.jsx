@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Layout from './Layout';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import axiosInstance from '../../api/axiosConfig';
 
 function AddProduct() {
   const navigate = useNavigate();
@@ -12,127 +12,120 @@ function AddProduct() {
     price: '',
     stock: '',
     description: '',
-    image: '' 
+    image: '',
+    age_range: 'all', // ✅ added default
   });
-  
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  const categories = [
-    'Boys',
-    'Girls',
-    'Toys',
+  const categories = ['Boys', 'Girls', 'Toys'];
+
+  // ✅ Define age options
+  const ageOptions = [
+    { id: '0-6', label: '0-6 months' },
+    { id: '6-12', label: '6-12 months' },
+    { id: '1-2', label: '1-2 years' },
+    { id: '2-3', label: '2-3 years' },
+    { id: 'all', label: 'All Ages' },
   ];
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!product.name.trim()) {
-      newErrors.name = 'Product name is required';
-    } else if (product.name.trim().length < 2) {
+
+    if (!product.name.trim()) newErrors.name = 'Product name is required';
+    else if (product.name.trim().length < 2)
       newErrors.name = 'Product name must be at least 2 characters';
-    }
-    
-    if (!product.category) {
-      newErrors.category = 'Category is required';
-    }
-    
-    if (!product.price) {
-      newErrors.price = 'Price is required';
-    } else if (parseFloat(product.price) <= 0) {
+
+    if (!product.category) newErrors.category = 'Category is required';
+
+    if (!product.age_range) newErrors.age_range = 'Age category is required'; // ✅ added
+
+    if (!product.price) newErrors.price = 'Price is required';
+    else if (parseFloat(product.price) <= 0)
       newErrors.price = 'Price must be greater than 0';
-    } else if (parseFloat(product.price) > 999999) {
+    else if (parseFloat(product.price) > 999999)
       newErrors.price = 'Price cannot exceed 999,999';
-    }
-    
-    if (!product.stock) {
-      newErrors.stock = 'Stock quantity is required';
-    } else if (parseInt(product.stock) < 0) {
+
+    if (!product.stock) newErrors.stock = 'Stock quantity is required';
+    else if (parseInt(product.stock) < 0)
       newErrors.stock = 'Stock cannot be negative';
-    } else if (parseInt(product.stock) > 100000) {
+    else if (parseInt(product.stock) > 100000)
       newErrors.stock = 'Stock cannot exceed 100,000';
-    }
-    
-    if (product.description && product.description.length > 500) {
+
+    if (product.description && product.description.length > 500)
       newErrors.description = 'Description cannot exceed 500 characters';
-    }
-    
+
     return newErrors;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProduct({ ...product, [name]: value });
-    
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
-    }
+    if (errors[name]) setErrors({ ...errors, [name]: '' });
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setErrors({ ...errors, image: 'Please select a valid image file' });
       return;
     }
-    
-    // Validate file size (5MB limit)
+
     if (file.size > 5 * 1024 * 1024) {
       setErrors({ ...errors, image: 'Image size must be less than 5MB' });
       return;
     }
-    
-    // Create preview
+
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setImagePreview(e.target.result);
-      setProduct({ ...product, image: e.target.result });
-    };
+    reader.onload = (e) => setImagePreview(e.target.result);
     reader.readAsDataURL(file);
-    
+
+    setImageFile(file);
     setErrors({ ...errors, image: '' });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
+    if (!imageFile) {
+      setErrors({ image: 'Product image is required' });
+      return;
+    }
+
     setLoading(true);
     setErrors({});
     setSuccess('');
-    
+
     try {
-      const productData = {
-        name: product.name.trim(),
-        category: product.category,
-        price: parseFloat(product.price),
-        stock: parseInt(product.stock),
-        description: product.description.trim(),
-        image: product.image, 
-        createdAt: new Date().toISOString()
-      };
-      
-      await axios.post('http://localhost:3000/products', productData);
-      
+      const formData = new FormData();
+      formData.append('name', product.name.trim());
+      formData.append('category', product.category.toLowerCase());
+      formData.append('age_range', product.age_range); // ✅ added
+      formData.append('price', parseFloat(product.price));
+      formData.append('stock', parseInt(product.stock));
+      formData.append('description', product.description.trim());
+      formData.append('image', imageFile);
+
+      await axiosInstance.post('/products/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
       setSuccess('Product added successfully!');
-      
-      setTimeout(() => {
-        navigate('/admin/products');
-      }, 1500);
-      
+      setTimeout(() => navigate('/admin/products'), 1500);
     } catch (error) {
       console.error('Error adding product:', error);
-      
       if (error.response?.data?.message) {
         setErrors({ general: error.response.data.message });
       } else if (error.response?.status === 400) {
@@ -147,14 +140,13 @@ function AddProduct() {
     }
   };
 
- const handleCancel = () => {
-  const confirmed = window.confirm('Are you sure? Unsaved changes will be lost.');
-  if (confirmed) {
-    toast.success('Cancelled successfully');
-    navigate('/admin/products');
-  }
-};
-
+  const handleCancel = () => {
+    const confirmed = window.confirm('Are you sure? Unsaved changes will be lost.');
+    if (confirmed) {
+      toast.success('Cancelled successfully');
+      navigate('/admin/products');
+    }
+  };
 
   return (
     <Layout>
@@ -220,14 +212,42 @@ function AddProduct() {
               required
             >
               <option value="">Select a category</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
             {errors.category && <p className="mt-1 text-sm text-red-600">{errors.category}</p>}
           </div>
 
-          {/* Price and Stock Row */}
+          {/* ✅ Age Category */}
+          <div>
+            <label htmlFor="age_range" className="block text-sm font-medium text-gray-700 mb-1">
+              Age Category *
+            </label>
+            <select
+              id="age_range"
+              name="age_range"
+              value={product.age_range}
+              onChange={handleChange}
+              disabled={loading}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                errors.age_range ? 'border-red-500' : 'border-gray-300'
+              }`}
+              required
+            >
+              <option value="">Select Age Category</option>
+              {ageOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {errors.age_range && <p className="mt-1 text-sm text-red-600">{errors.age_range}</p>}
+          </div>
+
+          {/* Price and Stock */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
@@ -302,7 +322,7 @@ function AddProduct() {
           {/* Image Upload */}
           <div>
             <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-              Product Image
+              Product Image *
             </label>
             <input
               type="file"
@@ -316,7 +336,6 @@ function AddProduct() {
             <p className="mt-1 text-sm text-gray-500">
               Accepted formats: JPG, PNG, GIF. Max size: 5MB.
             </p>
-            
             {imagePreview && (
               <div className="mt-3">
                 <img
@@ -328,7 +347,7 @@ function AddProduct() {
             )}
           </div>
 
-          {/* Action Buttons */}
+          {/* Buttons */}
           <div className="flex space-x-4 pt-4">
             <button
               type="submit"
@@ -341,9 +360,25 @@ function AddProduct() {
             >
               {loading ? (
                 <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Adding Product...
                 </span>
@@ -351,7 +386,7 @@ function AddProduct() {
                 'Add Product'
               )}
             </button>
-            
+
             <button
               type="button"
               onClick={handleCancel}

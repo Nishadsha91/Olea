@@ -12,20 +12,17 @@ export const CartWishlistProvider = ({ children }) => {
   const [wishlistCount, setWishlistCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
 
-  // Load cart & wishlist on user change
   useEffect(() => {
     if (user) {
       loadCartCount();
       loadWishlist();
     } else {
-      // Clear local state only - no API calls
       setWishlist([]);
       setWishlistCount(0);
       setCartCount(0);
     }
   }, [user]);
 
-  // ------------------ CART ------------------
 
   const loadCartCount = async () => {
     if (!user) {
@@ -90,7 +87,6 @@ export const CartWishlistProvider = ({ children }) => {
     setCartCount(0);
   };
 
-  // ------------------ WISHLIST ------------------
 
   const loadWishlist = async () => {
     if (!user) {

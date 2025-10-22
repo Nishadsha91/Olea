@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, ChevronLeft, Star, Shield, Truck } from 'lucide-react';
 import { toast } from 'react-toastify';
-import axiosInstance from '../../api/axiosConfig'; // ✅ use your axios instance (already handles token)
+import axiosInstance from '../../api/axiosConfig';
 import { CartWishlistContext } from '../../context/CartWishlistContext';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -18,7 +18,6 @@ function ProductDetails() {
   const { addToCart, addToWishlist, wishlist } = useContext(CartWishlistContext);
   const { user } = useContext(AuthContext);
 
-  // ✅ Fetch product from backend
   useEffect(() => {
     const fetchProduct = async () => {
       try {
@@ -34,7 +33,6 @@ function ProductDetails() {
     fetchProduct();
   }, [id]);
 
-  // ✅ Add to Cart
   const handleAddToCart = async () => {
     if (!user) {
       toast.warning('Please login to add items to your cart.');
@@ -44,7 +42,6 @@ function ProductDetails() {
     await addToCart({ ...product, quantity });
   };
 
-  // ✅ Add to Wishlist
   const handleAddToWishlist = async () => {
     if (!user) {
       toast.warning('Please login to add items to your wishlist.');
@@ -54,7 +51,6 @@ function ProductDetails() {
     await addToWishlist(product);
   };
 
-  // ✅ Loading Spinner
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -63,7 +59,6 @@ function ProductDetails() {
     );
   }
 
-  // ✅ Product Not Found
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -80,7 +75,6 @@ function ProductDetails() {
     );
   }
 
-  // ✅ Handle Product Images (use fallback if others not exist)
   const productImages = product.images?.length
     ? product.images
     : [product.image || '/placeholder.jpg'];
@@ -104,7 +98,7 @@ function ProductDetails() {
 
             {/* Image Gallery */}
             <div>
-              <div className="relative h-96 rounded-lg overflow-hidden mb-4">
+              <div className="relative h-130 rounded-lg overflow-hidden mb-4">
                 <img
                   src={productImages[selectedImage]}
                   alt={product.name}
@@ -221,7 +215,7 @@ function ProductDetails() {
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Product Details</h3>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li>
-                    <strong>Category:</strong> {product.category?.name || 'N/A'}
+                    <strong>Category:</strong> {product.category?.choices || 'N/A'}
                   </li>
                   <li>
                     <strong>Material:</strong> {product.material || 'Cotton'}

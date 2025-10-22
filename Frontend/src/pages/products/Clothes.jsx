@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Heart, Star, ChevronRight, ShoppingCart } from 'lucide-react';
 
-import ImageModal from '../../components/user/ImageModal'; // update path as per depth
+import ImageModal from '../../components/user/ImageModal'; 
 
 import { motion } from 'framer-motion';
 import { CartWishlistContext } from '../../context/CartWishlistContext';
